@@ -90,4 +90,29 @@ async function fetchUsers() {
         throw new Error('Неизвестная ошибка');
     }
 }
+async function main() {
+    try {
+        const data = await fetchUsers();
+        console.log(`Всего пользователей: ${data.total}`);
+        for (const user of data.users) {
+            // Благодаря enum TypeScript знает точный набор значений
+            if (user.role === UserRole.Admin) {
+                console.log(`Админ: ${user.firstName} ${user.lastName}`);
+            }
+            if (user.gender === Gender.Female) {
+                console.log(`Женщина: ${user.firstName}`);
+            }
+            console.log(`Группа крови: ${user.bloodGroup}`); // 'A+' | 'B-' | ...
+        }
+    }
+    catch (error) {
+        if (error instanceof Error) {
+            console.error('Ошибка:', error.message);
+        }
+        else {
+            console.error('Неизвестная ошибка:', error);
+        }
+    }
+}
+main();
 //# sourceMappingURL=app.js.map
