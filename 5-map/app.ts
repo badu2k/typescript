@@ -13,7 +13,10 @@ export default class MyMap<K, V> {
         initialCapacity: number = 16,
         loadFactor: number = 0.75
     ) {
-        if (initialCapacity < 1 || !Number.isInteger(initialCapacity)) {
+        if (
+            initialCapacity < 1 ||
+            !Number.isInteger(initialCapacity)
+        ) {
             throw new RangeError(
                 'initialCapacity must be a positive integer'
             );
@@ -35,7 +38,8 @@ export default class MyMap<K, V> {
 
     public set(key: K, value: V): this {
         const index: number = this.getBucketIndex(key);
-        let current: HashMapEntry<K, V> | null = this.buckets[index];
+        let current: HashMapEntry<K, V> | null =
+            this.getBucket(index);
 
         while (current !== null) {
             if (Object.is(current.key, key)) {
@@ -49,13 +53,16 @@ export default class MyMap<K, V> {
         const newEntry: HashMapEntry<K, V> = {
             key,
             value,
-            next: this.buckets[index]
+            next: this.getBucket(index)
         };
 
         this.buckets[index] = newEntry;
         this.itemCount++;
 
-        if (this.itemCount / this.buckets.length > this.loadFactor) {
+        if (
+            this.itemCount / this.buckets.length >
+            this.loadFactor
+        ) {
             this.resize();
         }
 
@@ -64,7 +71,8 @@ export default class MyMap<K, V> {
 
     public get(key: K): V | undefined {
         const index: number = this.getBucketIndex(key);
-        let current: HashMapEntry<K, V> | null = this.buckets[index];
+        let current: HashMapEntry<K, V> | null =
+            this.getBucket(index);
 
         while (current !== null) {
             if (Object.is(current.key, key)) {
@@ -79,7 +87,10 @@ export default class MyMap<K, V> {
 
     public delete(key: K): boolean {
         const index: number = this.getBucketIndex(key);
-        let current: HashMapEntry<K, V> | null = this.buckets[index];
+
+        let current: HashMapEntry<K, V> | null =
+            this.getBucket(index);
+
         let previous: HashMapEntry<K, V> | null = null;
 
         while (current !== null) {
@@ -106,22 +117,43 @@ export default class MyMap<K, V> {
         this.itemCount = 0;
     }
 
+    public has(key: K): boolean {
+        const index: number = this.getBucketIndex(key);
+        let current: HashMapEntry<K, V> | null =
+            this.getBucket(index);
+
+        while (current !== null) {
+            if (Object.is(current.key, key)) {
+                return true;
+            }
+
+            current = current.next;
+        }
+
+        return false;
+    }
+
     public get size(): number {
         return this.itemCount;
     }
 
+    private getBucket(index: number): HashMapEntry<K, V> | null {
+        return this.buckets[index] ?? null;
+    }
+
     private getBucketIndex(key: K): number {
-        const hash: number = this.hash(key);
-        return hash % this.buckets.length;
+        return this.hash(key) % this.buckets.length;
     }
 
     private hash(key: K): number {
         const keyString: string = this.keyToString(key);
-
         let hash: number = 0;
 
         for (let i = 0; i < keyString.length; i++) {
-            hash = (hash * 31 + keyString.charCodeAt(i)) >>> 0;
+            hash = (
+                hash * 31 +
+                keyString.charCodeAt(i)
+            ) >>> 0;
         }
 
         return hash;
@@ -183,10 +215,13 @@ export default class MyMap<K, V> {
             let current: HashMapEntry<K, V> | null = bucket;
 
             while (current !== null) {
-                const next: HashMapEntry<K, V> | null = current.next;
-                const index: number = this.getBucketIndex(current.key);
+                const next: HashMapEntry<K, V> | null =
+                    current.next;
 
-                current.next = this.buckets[index];
+                const index: number =
+                    this.getBucketIndex(current.key);
+
+                current.next = this.getBucket(index);
                 this.buckets[index] = current;
 
                 current = next;

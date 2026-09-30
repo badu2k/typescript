@@ -7,7 +7,9 @@ export default class MyMap<K, V> {
     get(key: K): V | undefined;
     delete(key: K): boolean;
     clear(): void;
+    has(key: K): boolean;
     get size(): number;
+    private getBucket;
     private getBucketIndex;
     private hash;
     private keyToString;
