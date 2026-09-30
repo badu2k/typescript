@@ -1,118 +1,139 @@
 "use strict";
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.EyeColor = exports.BloodGroup = exports.UserRole = exports.Gender = void 0;
-exports.isError = isError;
-exports.fetchUsers = fetchUsers;
-const axios_1 = __importStar(require("axios"));
-var Gender;
-(function (Gender) {
-    Gender["Male"] = "male";
-    Gender["Female"] = "female";
-})(Gender || (exports.Gender = Gender = {}));
-var UserRole;
-(function (UserRole) {
-    UserRole["Admin"] = "admin";
-    UserRole["Moderator"] = "moderator";
-    UserRole["User"] = "user";
-})(UserRole || (exports.UserRole = UserRole = {}));
-var BloodGroup;
-(function (BloodGroup) {
-    BloodGroup["APositive"] = "A+";
-    BloodGroup["ANegative"] = "A-";
-    BloodGroup["BPositive"] = "B+";
-    BloodGroup["BNegative"] = "B-";
-    BloodGroup["ABPositive"] = "AB+";
-    BloodGroup["ABNegative"] = "AB-";
-    BloodGroup["OPositive"] = "O+";
-    BloodGroup["ONegative"] = "O-";
-})(BloodGroup || (exports.BloodGroup = BloodGroup = {}));
-var EyeColor;
-(function (EyeColor) {
-    EyeColor["Amber"] = "Amber";
-    EyeColor["Blue"] = "Blue";
-    EyeColor["Brown"] = "Brown";
-    EyeColor["Gray"] = "Gray";
-    EyeColor["Green"] = "Green";
-    EyeColor["Hazel"] = "Hazel";
-    EyeColor["Red"] = "Red";
-    EyeColor["Violet"] = "Violet";
-})(EyeColor || (exports.EyeColor = EyeColor = {}));
-function isError(error) {
-    return error instanceof Error;
-}
-async function fetchUsers() {
-    try {
-        const response = await fetch('https://dummyjson.com/users');
-        if (!response.ok) {
-            throw new Error(`HTTP error: ${response.status}`);
+class MyMap {
+    buckets;
+    itemCount;
+    loadFactor;
+    constructor(initialCapacity = 16, loadFactor = 0.75) {
+        if (initialCapacity < 1 || !Number.isInteger(initialCapacity)) {
+            throw new RangeError('initialCapacity must be a positive integer');
         }
-        return (await response.json());
-    }
-    catch (error) {
-        if (isError(error)) {
-            console.error(error.message);
-            throw error;
+        if (loadFactor <= 0 || loadFactor >= 1) {
+            throw new RangeError('loadFactor must be greater than 0 and less than 1');
         }
-        console.error('Неизвестная ошибка:', error);
-        throw new Error('Неизвестная ошибка');
+        this.buckets = new Array(initialCapacity).fill(null);
+        this.itemCount = 0;
+        this.loadFactor = loadFactor;
     }
-}
-async function main() {
-    try {
-        const data = await fetchUsers();
-        console.log(`Всего пользователей: ${data.total}`);
-        for (const user of data.users) {
-            // Благодаря enum TypeScript знает точный набор значений
-            if (user.role === UserRole.Admin) {
-                console.log(`Админ: ${user.firstName} ${user.lastName}`);
+    set(key, value) {
+        const index = this.getBucketIndex(key);
+        let current = this.buckets[index];
+        while (current !== null) {
+            if (Object.is(current.key, key)) {
+                current.value = value;
+                return this;
             }
-            if (user.gender === Gender.Female) {
-                console.log(`Женщина: ${user.firstName}`);
-            }
-            console.log(`Группа крови: ${user.bloodGroup}`); // 'A+' | 'B-' | ...
+            current = current.next;
         }
+        const newEntry = {
+            key,
+            value,
+            next: this.buckets[index]
+        };
+        this.buckets[index] = newEntry;
+        this.itemCount++;
+        if (this.itemCount / this.buckets.length > this.loadFactor) {
+            this.resize();
+        }
+        return this;
     }
-    catch (error) {
-        if (error instanceof Error) {
-            console.error('Ошибка:', error.message);
+    get(key) {
+        const index = this.getBucketIndex(key);
+        let current = this.buckets[index];
+        while (current !== null) {
+            if (Object.is(current.key, key)) {
+                return current.value;
+            }
+            current = current.next;
         }
-        else {
-            console.error('Неизвестная ошибка:', error);
+        return undefined;
+    }
+    delete(key) {
+        const index = this.getBucketIndex(key);
+        let current = this.buckets[index];
+        let previous = null;
+        while (current !== null) {
+            if (Object.is(current.key, key)) {
+                if (previous === null) {
+                    this.buckets[index] = current.next;
+                }
+                else {
+                    previous.next = current.next;
+                }
+                this.itemCount--;
+                return true;
+            }
+            previous = current;
+            current = current.next;
+        }
+        return false;
+    }
+    clear() {
+        this.buckets.fill(null);
+        this.itemCount = 0;
+    }
+    get size() {
+        return this.itemCount;
+    }
+    getBucketIndex(key) {
+        const hash = this.hash(key);
+        return hash % this.buckets.length;
+    }
+    hash(key) {
+        const keyString = this.keyToString(key);
+        let hash = 0;
+        for (let i = 0; i < keyString.length; i++) {
+            hash = (hash * 31 + keyString.charCodeAt(i)) >>> 0;
+        }
+        return hash;
+    }
+    keyToString(key) {
+        if (typeof key === 'string') {
+            return `string:${key}`;
+        }
+        if (typeof key === 'number') {
+            if (Number.isNaN(key)) {
+                return 'number:NaN';
+            }
+            if (Object.is(key, -0)) {
+                return 'number:-0';
+            }
+            return `number:${key}`;
+        }
+        if (typeof key === 'boolean') {
+            return `boolean:${key}`;
+        }
+        if (typeof key === 'bigint') {
+            return `bigint:${key.toString()}`;
+        }
+        if (typeof key === 'symbol') {
+            return `symbol:${key.toString()}`;
+        }
+        if (typeof key === 'function') {
+            return `function:${key.toString()}`;
+        }
+        if (key === null) {
+            return 'null';
+        }
+        if (key === undefined) {
+            return 'undefined';
+        }
+        return `object:${JSON.stringify(key)}`;
+    }
+    resize() {
+        const oldBuckets = this.buckets;
+        this.buckets = new Array(oldBuckets.length * 2).fill(null);
+        for (const bucket of oldBuckets) {
+            let current = bucket;
+            while (current !== null) {
+                const next = current.next;
+                const index = this.getBucketIndex(current.key);
+                current.next = this.buckets[index];
+                this.buckets[index] = current;
+                current = next;
+            }
         }
     }
 }
-main();
+exports.default = MyMap;
 //# sourceMappingURL=app.js.map

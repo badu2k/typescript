@@ -1,169 +1,196 @@
-import axios, { AxiosError } from 'axios';
+type HashMapEntry<K, V> = {
+    key: K;
+    value: V;
+    next: HashMapEntry<K, V> | null;
+};
 
-export enum Gender {
-  Male = 'male',
-  Female = 'female',
-}
+export default class MyMap<K, V> {
+    private buckets: Array<HashMapEntry<K, V> | null>;
+    private itemCount: number;
+    private readonly loadFactor: number;
 
-export enum UserRole {
-  Admin = 'admin',
-  Moderator = 'moderator',
-  User = 'user',
-}
+    public constructor(
+        initialCapacity: number = 16,
+        loadFactor: number = 0.75
+    ) {
+        if (initialCapacity < 1 || !Number.isInteger(initialCapacity)) {
+            throw new RangeError(
+                'initialCapacity must be a positive integer'
+            );
+        }
 
-export enum BloodGroup {
-  APositive = 'A+',
-  ANegative = 'A-',
-  BPositive = 'B+',
-  BNegative = 'B-',
-  ABPositive = 'AB+',
-  ABNegative = 'AB-',
-  OPositive = 'O+',
-  ONegative = 'O-',
-}
+        if (loadFactor <= 0 || loadFactor >= 1) {
+            throw new RangeError(
+                'loadFactor must be greater than 0 and less than 1'
+            );
+        }
 
-export enum EyeColor {
-  Amber = 'Amber',
-  Blue = 'Blue',
-  Brown = 'Brown',
-  Gray = 'Gray',
-  Green = 'Green',
-  Hazel = 'Hazel',
-  Red = 'Red',
-  Violet = 'Violet',
-}
+        this.buckets = new Array<HashMapEntry<K, V> | null>(
+            initialCapacity
+        ).fill(null);
 
-// ===== Вложенные сущности =====
-
-export interface Coordinates {
-  lat: number;
-  lng: number;
-}
-
-export interface Address {
-  address: string;
-  city: string;
-  state: string;
-  stateCode: string;
-  postalCode: string;
-  coordinates: Coordinates;
-  country: string;
-}
-
-export interface Hair {
-  color: string;
-  type: string;
-}
-
-export interface Bank {
-  cardExpire: string;
-  cardNumber: string;
-  cardType: string;
-  currency: string;
-  iban: string;
-}
-
-export interface Company {
-  department: string;
-  name: string;
-  title: string;
-  address: Address;
-}
-
-export interface Crypto {
-  coin: string;
-  wallet: string;
-  network: string;
-}
-
-// ===== Основной пользователь =====
-
-export interface User {
-  id: number;
-  firstName: string;
-  lastName: string;
-  maidenName: string;
-  age: number;
-  gender: Gender;
-  email: string;
-  phone: string;
-  username: string;
-  password: string;
-  birthDate: string;
-  image: string;
-  bloodGroup: BloodGroup;
-  height: number;
-  weight: number;
-  eyeColor: EyeColor;
-  hair: Hair;
-  ip: string;
-  address: Address;
-  macAddress: string;
-  university: string;
-  bank: Bank;
-  company: Company;
-  ein: string;
-  ssn: string;
-  userAgent: string;
-  crypto: Crypto;
-  role: UserRole;
-}
-
-// ===== Ответ эндпоинта =====
-
-export interface UsersResponse {
-  users: User[];
-  total: number;
-  skip: number;
-  limit: number;
-}
-
-export function isError(error: unknown): error is Error {
-  return error instanceof Error;
-}
-
-export async function fetchUsers(): Promise<UsersResponse> {
-  try {
-    const response = await fetch('https://dummyjson.com/users');
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
+        this.itemCount = 0;
+        this.loadFactor = loadFactor;
     }
-    return (await response.json()) as UsersResponse;
-  } catch (error: unknown) {
-    if (isError(error)) {
-      console.error(error.message);
-      throw error;
+
+    public set(key: K, value: V): this {
+        const index: number = this.getBucketIndex(key);
+        let current: HashMapEntry<K, V> | null = this.buckets[index];
+
+        while (current !== null) {
+            if (Object.is(current.key, key)) {
+                current.value = value;
+                return this;
+            }
+
+            current = current.next;
+        }
+
+        const newEntry: HashMapEntry<K, V> = {
+            key,
+            value,
+            next: this.buckets[index]
+        };
+
+        this.buckets[index] = newEntry;
+        this.itemCount++;
+
+        if (this.itemCount / this.buckets.length > this.loadFactor) {
+            this.resize();
+        }
+
+        return this;
     }
-    console.error('Неизвестная ошибка:', error);
-    throw new Error('Неизвестная ошибка');
-  }
+
+    public get(key: K): V | undefined {
+        const index: number = this.getBucketIndex(key);
+        let current: HashMapEntry<K, V> | null = this.buckets[index];
+
+        while (current !== null) {
+            if (Object.is(current.key, key)) {
+                return current.value;
+            }
+
+            current = current.next;
+        }
+
+        return undefined;
+    }
+
+    public delete(key: K): boolean {
+        const index: number = this.getBucketIndex(key);
+        let current: HashMapEntry<K, V> | null = this.buckets[index];
+        let previous: HashMapEntry<K, V> | null = null;
+
+        while (current !== null) {
+            if (Object.is(current.key, key)) {
+                if (previous === null) {
+                    this.buckets[index] = current.next;
+                } else {
+                    previous.next = current.next;
+                }
+
+                this.itemCount--;
+                return true;
+            }
+
+            previous = current;
+            current = current.next;
+        }
+
+        return false;
+    }
+
+    public clear(): void {
+        this.buckets.fill(null);
+        this.itemCount = 0;
+    }
+
+    public get size(): number {
+        return this.itemCount;
+    }
+
+    private getBucketIndex(key: K): number {
+        const hash: number = this.hash(key);
+        return hash % this.buckets.length;
+    }
+
+    private hash(key: K): number {
+        const keyString: string = this.keyToString(key);
+
+        let hash: number = 0;
+
+        for (let i = 0; i < keyString.length; i++) {
+            hash = (hash * 31 + keyString.charCodeAt(i)) >>> 0;
+        }
+
+        return hash;
+    }
+
+    private keyToString(key: K): string {
+        if (typeof key === 'string') {
+            return `string:${key}`;
+        }
+
+        if (typeof key === 'number') {
+            if (Number.isNaN(key)) {
+                return 'number:NaN';
+            }
+
+            if (Object.is(key, -0)) {
+                return 'number:-0';
+            }
+
+            return `number:${key}`;
+        }
+
+        if (typeof key === 'boolean') {
+            return `boolean:${key}`;
+        }
+
+        if (typeof key === 'bigint') {
+            return `bigint:${key.toString()}`;
+        }
+
+        if (typeof key === 'symbol') {
+            return `symbol:${key.toString()}`;
+        }
+
+        if (typeof key === 'function') {
+            return `function:${key.toString()}`;
+        }
+
+        if (key === null) {
+            return 'null';
+        }
+
+        if (key === undefined) {
+            return 'undefined';
+        }
+
+        return `object:${JSON.stringify(key)}`;
+    }
+
+    private resize(): void {
+        const oldBuckets: Array<HashMapEntry<K, V> | null> =
+            this.buckets;
+
+        this.buckets = new Array<HashMapEntry<K, V> | null>(
+            oldBuckets.length * 2
+        ).fill(null);
+
+        for (const bucket of oldBuckets) {
+            let current: HashMapEntry<K, V> | null = bucket;
+
+            while (current !== null) {
+                const next: HashMapEntry<K, V> | null = current.next;
+                const index: number = this.getBucketIndex(current.key);
+
+                current.next = this.buckets[index];
+                this.buckets[index] = current;
+
+                current = next;
+            }
+        }
+    }
 }
-
-async function main(): Promise<void> {
-  try {
-    const data = await fetchUsers();
-
-    console.log(`Всего пользователей: ${data.total}`);
-
-    for (const user of data.users) {
-      // Благодаря enum TypeScript знает точный набор значений
-      if (user.role === UserRole.Admin) {
-        console.log(`Админ: ${user.firstName} ${user.lastName}`);
-      }
-
-      if (user.gender === Gender.Female) {
-        console.log(`Женщина: ${user.firstName}`);
-      }
-
-      console.log(`Группа крови: ${user.bloodGroup}`); // 'A+' | 'B-' | ...
-    }
-  } catch (error: unknown) {
-    if (error instanceof Error) {
-      console.error('Ошибка:', error.message);
-    } else {
-      console.error('Неизвестная ошибка:', error);
-    }
-  }
-}
-
-main();
