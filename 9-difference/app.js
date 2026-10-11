@@ -6,7 +6,6 @@ function difference(a, b) {
     const result = {};
     for (const key in a) {
         if (Object.prototype.hasOwnProperty.call(a, key)) {
-            // Если ключа нет в b — забираем его из a
             if (!(key in b)) {
                 result[key] = a[key];
             }
